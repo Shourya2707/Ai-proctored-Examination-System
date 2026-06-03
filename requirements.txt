@@ -12,3 +12,8 @@ opencv-python-headless
 mediapipe
 Pillow
 uvicorn[standard]
+whitenoise
+dj-database-url
+python-dotenv
+gunicorn
+psycopg2-binary
