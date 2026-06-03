@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="glass rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-8 sm:px-10">
+            <div class="mb-8">
+                <h2 class="text-3xl font-extrabold text-white">Create New Exam</h2>
+                <p class="mt-2 text-gray-400">Fill in the details and add questions for your proctored examination.</p>
+            </div>
+
+            <form id="createExamForm" action="{% url 'admin_create_exam' %}" method="POST" class="space-y-8">
+                {% csrf_token %}
+                
+                <!-- Exam Details Section -->
+                <div class="space-y-6">
+                    <h3 class="text-xl font-semibold text-primary border-b border-gray-700 pb-2">1. Exam Details</h3>
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <div class="col-span-2">
+                            <label for="title" class="block text-sm font-medium text-gray-300">Exam Title</label>
+                            <input type="text" name="title" id="title" required class="mt-1 block w-full bg-dark border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="e.g. Computer Science 101 Final">
+                        </div>
+
+                        <div class="col-span-2">
+                            <label for="description" class="block text-sm font-medium text-gray-300">Description</label>
+                            <textarea name="description" id="description" rows="2" class="mt-1 block w-full bg-dark border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" placeholder="Enter exam instructions and details..."></textarea>
+                        </div>
+
+                        <div>
+                            <label for="start_time" class="block text-sm font-medium text-gray-300">Start Date & Time</label>
+                            <input type="datetime-local" name="start_time" id="start_time" required class="mt-1 block w-full bg-dark border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                        </div>
+
+                        <div>
+                            <label for="duration" class="block text-sm font-medium text-gray-300">Duration (Minutes)</label>
+                            <input type="number" name="duration" id="duration" required min="1" value="60" class="mt-1 block w-full bg-dark border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Section -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between border-b border-gray-700 pb-2">
+                        <h3 class="text-xl font-semibold text-primary">2. Questions</h3>
+                        <button type="button" id="addQuestionBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-secondary hover:bg-green-600 transition-colors">
+                            + Add Question
+                        </button>
+                    </div>
+
+                    <div id="questionsContainer" class="space-y-6">
+                        <!-- Questions will be added here -->
+                    </div>
+                </div>
+
+                <input type="hidden" name="questions_json" id="questionsJsonInput">
+
+                <div class="flex items-center justify-end gap-4 mt-8 pt-8 border-t border-gray-700">
+                    <a href="{% url 'admin_dashboard' %}" class="px-6 py-3 rounded-xl font-medium text-gray-400 hover:text-white transition-colors">Cancel</a>
+                    <button type="submit" class="px-8 py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-primary/30 transform transition-all active:scale-95">
+                        Save and Create Exam
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Template for a new question card -->
+<template id="questionTemplate">
+    <div class="question-card glass p-6 rounded-2xl relative border border-gray-800 hover:border-gray-600 transition-colors">
+        <button type="button" class="remove-question absolute top-4 right-4 text-gray-500 hover:text-red-500">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l18 18" /></svg>
+        </button>
+        
+        <div class="grid grid-cols-1 gap-4">
+            <div class="flex gap-4">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-500 uppercase">Question Text</label>
+                    <input type="text" class="question-text mt-1 block w-full bg-dark/50 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-1 focus:ring-primary" placeholder="Enter question...">
+                </div>
+                <div class="w-32">
+                    <label class="block text-xs font-medium text-gray-500 uppercase">Type</label>
+                    <select class="question-type mt-1 block w-full bg-dark/50 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-1 focus:ring-primary">
+                        <option value="MCQ">MCQ</option>
+                        <option value="SUBJECTIVE">Subjective</option>
+                    </select>
+                </div>
+                <div class="w-20">
+                    <label class="block text-xs font-medium text-gray-500 uppercase">Marks</label>
+                    <input type="number" value="1" min="1" class="question-marks mt-1 block w-full bg-dark/50 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:ring-1 focus:ring-primary">
+                </div>
+            </div>
+
+            <!-- MCQ Options Container -->
+            <div class="mcq-options-container space-y-2 mt-4">
+                <label class="block text-xs font-medium text-gray-500 uppercase">Options (check the correct one)</label>
+                <div class="options-list space-y-2">
+                    <!-- Options will be added here -->
+                </div>
+                <button type="button" class="add-option-btn text-xs text-primary hover:text-blue-400 mt-2">+ Add Option</button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Template for an MCQ option -->
+<template id="optionTemplate">
+    <div class="option-item flex items-center gap-3">
+        <input type="checkbox" class="option-correct h-4 w-4 text-primary bg-dark border-gray-700 rounded focus:ring-primary">
+        <input type="text" class="option-text flex-1 bg-dark/30 border border-gray-700 rounded-lg px-3 py-1 text-sm text-white outline-none focus:ring-1 focus:ring-primary" placeholder="Option text">
+        <button type="button" class="remove-option text-gray-600 hover:text-red-500">&times;</button>
+    </div>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('questionsContainer');
+    const addBtn = document.getElementById('addQuestionBtn');
+    const qTemplate = document.getElementById('questionTemplate');
+    const oTemplate = document.getElementById('optionTemplate');
+    const form = document.getElementById('createExamForm');
+    const jsonInput = document.getElementById('questionsJsonInput');
+
+    function addQuestion() {
+        const clone = qTemplate.content.cloneNode(true);
+        const card = clone.querySelector('.question-card');
+        const typeSelect = card.querySelector('.question-type');
+        const mcqContainer = card.querySelector('.mcq-options-container');
+        const optionsList = card.querySelector('.options-list');
+        const addOptBtn = card.querySelector('.add-option-btn');
+
+        // Handle type change
+        typeSelect.addEventListener('change', function() {
+            mcqContainer.style.display = this.value === 'MCQ' ? 'block' : 'none';
+        });
+
+        // Add initial 4 options for MCQ
+        for(let i=0; i<4; i++) {
+            addOption(optionsList);
+        }
+
+        addOptBtn.addEventListener('click', () => addOption(optionsList));
+
+        card.querySelector('.remove-question').addEventListener('click', () => card.remove());
+
+        container.appendChild(card);
+    }
+
+    function addOption(list) {
+        const clone = oTemplate.content.cloneNode(true);
+        const item = clone.querySelector('.option-item');
+        item.querySelector('.remove-option').addEventListener('click', () => item.remove());
+        list.appendChild(item);
+    }
+
+    function addOption(list) {
+        const clone = oTemplate.content.cloneNode(true);
+        const item = clone.querySelector('.option-item');
+        item.querySelector('.remove-option').addEventListener('click', () => {
+            if(list.querySelectorAll('.option-item').length > 1) {
+                item.remove();
+            }
+        });
+        list.appendChild(item);
+    }
+
+    addBtn.addEventListener('click', addQuestion);
+
+    // Add one initial question
+    addQuestion();
+
+    form.addEventListener('submit', function(e) {
+        const questions = [];
+        container.querySelectorAll('.question-card').forEach(card => {
+            const q = {
+                text: card.querySelector('.question-text').value,
+                type: card.querySelector('.question-type').value,
+                marks: parseInt(card.querySelector('.question-marks').value)
+            };
+
+            if(q.type === 'MCQ') {
+                q.options = [];
+                card.querySelectorAll('.option-item').forEach(opt => {
+                    q.options.push({
+                        text: opt.querySelector('.option-text').value,
+                        is_correct: opt.querySelector('.option-correct').checked
+                    });
+                });
+            }
+            questions.push(q);
+        });
+
+        jsonInput.value = JSON.stringify(questions);
+    });
+});
+</script>
+
+<style>
+    .glass {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+</style>
+{% endblock %}

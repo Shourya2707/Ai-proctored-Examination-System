@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam: {{ exam.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        dark: '#0f172a',
+                        darker: '#020617',
+                        surface: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .risk-glow {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-darker text-gray-100 font-sans h-screen overflow-hidden flex flex-col">
+
+    <!-- Top Bar -->
+    <header class="glass border-b border-gray-800 h-16 flex items-center justify-between px-6 z-10">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">{{ exam.title }}</h1>
+            <span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-semibold animate-pulse border border-red-500/30">
+                LIVE PROCTORING SECURE
+            </span>
+            <!-- Connection Status -->
+            <div class="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs border border-green-500/20 font-semibold" id="connStatus">
+                <span class="h-2 w-2 rounded-full bg-green-500 animate-ping" id="connPulse"></span>
+                <span id="connText">ONLINE</span>
+            </div>
+        </div>
+
+        <!-- Real-time Proctor Stats Header -->
+        <div class="flex items-center gap-8">
+            <!-- Warning Counter -->
+            <div class="hidden sm:flex items-center gap-2">
+                <span class="text-xs text-gray-400">Warnings:</span>
+                <div class="flex gap-1.5" id="warningBubbles">
+                    <!-- Dynamic indicator circles -->
+                    <span class="h-4 w-4 rounded-full border border-gray-600 bg-gray-800"></span>
+                    <span class="h-4 w-4 rounded-full border border-gray-600 bg-gray-800"></span>
+                    <span class="h-4 w-4 rounded-full border border-gray-600 bg-gray-800"></span>
+                </div>
+            </div>
+
+            <!-- Risk Score Bar -->
+            <div class="hidden md:flex flex-col w-36">
+                <div class="flex justify-between text-[10px] text-gray-400 mb-0.5">
+                    <span>Proctor Risk Score</span>
+                    <span id="riskPercentText" class="font-bold">0%</span>
+                </div>
+                <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                    <div id="riskBar" class="h-full bg-gradient-to-r from-green-500 to-yellow-500 transition-all duration-300" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div class="text-right">
+                <p class="text-xs text-gray-400">Time Remaining</p>
+                <p id="timer" class="text-xl font-mono font-bold text-white tracking-wide">--:--:--</p>
+            </div>
+            
+            <button id="submitBtn" class="bg-primary hover:bg-blue-600 text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-lg shadow-primary/30">
+                Submit Exam
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Left: Webcam & Live Proctoring Alerts (Sidebar) -->
+        <aside class="w-80 glass border-r border-gray-800 flex flex-col z-10">
+            <!-- Live Webcam Window -->
+            <div class="p-4 border-b border-gray-800">
+                <div class="relative rounded-xl overflow-hidden bg-black aspect-video shadow-lg ring-1 ring-white/10">
+                    <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                    <canvas id="overlay" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                    
+                    <div class="absolute bottom-2 left-2 flex items-center gap-2 bg-black/60 px-2 py-1 rounded">
+                        <div class="h-2 w-2 rounded-full bg-green-500 animate-ping"></div>
+                        <span class="text-[10px] font-semibold text-white">PROCTOR MONITOR ACTIVE</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Alerts Feed -->
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center justify-between">
+                    <span>Violation Feed</span>
+                    <span id="violationCountBadge" class="bg-gray-800 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-full">0</span>
+                </h3>
+                <ul id="alertList" class="space-y-2.5">
+                    <!-- Alerts dynamically loaded -->
+                    <li class="p-3 rounded-lg border border-gray-800 bg-gray-800/20 text-xs text-gray-400 text-center italic">
+                        Proctor reports will be displayed here as they happen.
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Right: Questions Area -->
+        <main class="flex-1 overflow-y-auto p-8 relative">
+            
+            <!-- Fullscreen Overlay Lockout -->
+            <div id="fullscreenOverlay" class="absolute inset-0 bg-darker/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center hidden">
+                <div class="h-16 w-16 text-red-500 mb-6 animate-bounce">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">Fullscreen Enforced</h2>
+                <p class="text-gray-400 mb-8 max-w-md text-center text-sm">This examination requires secure fullscreen view at all times. Repeatedly exiting fullscreen will increase risk score and disqualify you.</p>
+                <button id="enterFullscreenBtn" class="bg-primary hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold transition-colors shadow-lg shadow-primary/30">
+                    Return to Fullscreen
+                </button>
+            </div>
+
+            <!-- Disqualification Lockout Overlay -->
+            <div id="disqOverlay" class="absolute inset-0 bg-darker/98 backdrop-blur-md z-50 flex flex-col items-center justify-center hidden">
+                <div class="h-20 w-20 text-red-600 mb-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-extrabold text-red-500 mb-2">Disqualified & Terminated</h2>
+                <p class="text-gray-400 mb-8 max-w-lg text-center text-sm">This session has been auto-submitted and terminated due to exceeding allowed suspicious activity limits or proctoring violations. Your response has been locked.</p>
+                <a href="{% url 'student_dashboard' %}" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-lg">
+                    Return to Dashboard
+                </a>
+            </div>
+
+            <!-- Offline / Connection Interruption Panel -->
+            <div id="offlineOverlay" class="absolute inset-x-0 top-0 bg-yellow-500 text-black py-2.5 text-center text-sm font-bold z-50 transition-all flex items-center justify-center gap-2 hidden">
+                <svg class="animate-spin h-5 w-5 text-black" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>INTERNET DISCONNECTED. Auto-saving locally. Reconnecting in the background...</span>
+            </div>
+
+            <!-- Content Area -->
+            <form id="examForm" action="{% url 'submit_exam' exam.id %}" method="POST" class="max-w-3xl mx-auto space-y-8 pb-20">
+                {% csrf_token %}
+                
+                {% for question in questions %}
+                <div class="glass rounded-2xl p-8" id="card_q{{ question.id }}">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm font-semibold text-primary tracking-wider uppercase">Question {{ forloop.counter }}</span>
+                        <span class="text-sm text-gray-400">{{ question.marks }} Point{{ question.marks|pluralize }}</span>
+                    </div>
+                    <p class="text-lg mb-6">{{ question.text }}</p>
+                    
+                    {% if question.question_type == 'MCQ' %}
+                    <div class="space-y-3">
+                        {% for option in question.options.all %}
+                        <label class="flex items-center p-4 border border-gray-700 rounded-xl hover:bg-gray-800 cursor-pointer transition-colors group">
+                            <input type="radio" name="q{{ question.id }}" value="{{ option.id }}" class="h-4 w-4 text-primary bg-gray-800 border-gray-600 focus:ring-primary focus:ring-offset-gray-900" onchange="autoSaveAnswer('q{{ question.id }}', '{{ option.id }}')">
+                            <span class="ml-3 text-gray-300 group-hover:text-white">{{ option.text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% elif question.question_type == 'SUBJECTIVE' %}
+                    <textarea name="q{{ question.id }}" rows="6" class="w-full bg-dark border border-gray-700 rounded-xl p-4 text-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none transition-all" placeholder="Write your answer here..." oninput="autoSaveAnswer('q{{ question.id }}', this.value)"></textarea>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="glass rounded-2xl p-12 text-center">
+                    <p class="text-gray-400">No questions found for this exam.</p>
+                </div>
+                {% endfor %}
+
+            </form>
+        </main>
+    </div>
+
+    <!-- Exam Scripts -->
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const overlayCanvas = document.getElementById('overlay');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const examId = "{{ exam.id }}";
+        const maxWarnings = parseInt("{{ exam.allowed_warnings }}") || 3;
+        
+        let ws;
+        let wsHeartbeat;
+        let isDisconnected = false;
+        let totalViolations = 0;
+
+        // 1. Local Auto-Save Logic (Resiliency)
+        const storageKey = `exam_save_${examId}_{{ request.user.username }}`;
+        
+        function autoSaveAnswer(questionId, value) {
+            let savedData = JSON.parse(localStorage.getItem(storageKey)) || {};
+            savedData[questionId] = value;
+            localStorage.setItem(storageKey, JSON.stringify(savedData));
+        }
+
+        function restoreSavedAnswers() {
+            let savedData = JSON.parse(localStorage.getItem(storageKey)) || {};
+            for (let qId in savedData) {
+                const elements = document.getElementsByName(qId);
+                if (elements.length > 0) {
+                    if (elements[0].type === 'radio') {
+                        // MCQ
+                        elements.forEach(radio => {
+                            if (radio.value === savedData[qId]) {
+                                radio.checked = true;
+                            }
+                        });
+                    } else if (elements[0].tagName === 'TEXTAREA') {
+                        // Subjective
+                        elements[0].value = savedData[qId];
+                    }
+                }
+            }
+        }
+
+        // 2. Webcam Initialization
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+                videoElement.srcObject = stream;
+                initWebSocket();
+            } catch (err) {
+                addAlert('Webcam Access Denied', 'Critical');
+                alert("Proctoring requires active webcam access. Please grant permissions.");
+            }
+        }
+
+        // 3. Network Resiliency & WebSockets Setup
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const wsUrl = protocol + window.location.host + '/ws/proctoring/' + examId + '/';
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('Connected to Proctor WebSocket server.');
+                isDisconnected = false;
+                
+                // Hide offline panels, trigger online badges
+                document.getElementById('offlineOverlay').classList.add('hidden');
+                document.getElementById('connText').textContent = "ONLINE";
+                document.getElementById('connStatus').className = "flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs border border-green-500/20 font-semibold";
+                document.getElementById('connPulse').className = "h-2.5 w-2.5 rounded-full bg-green-500 animate-ping";
+
+                // Periodically stream video frame snapshots
+                if (!wsHeartbeat) {
+                    wsHeartbeat = setInterval(sendFrame, 1200);
+                }
+            };
+            
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'ai_alert') {
+                    // Update visual meters
+                    updateProctorMeters(data.risk_score, data.warnings);
+
+                    if (data.violations && data.violations.length > 0) {
+                        data.violations.forEach(v => {
+                            addAlert(`Proctor Alert: ${v.replace(/_/g, ' ')}`, 'Critical');
+                        });
+                    }
+
+                    if (data.is_disqualified) {
+                        triggerDisqualification();
+                    }
+                }
+            };
+            
+            ws.onclose = () => {
+                console.warn('Proctor WebSocket lost connection.');
+                handleDisconnect();
+            };
+
+            ws.onerror = () => {
+                handleDisconnect();
+            };
+        }
+
+        function handleDisconnect() {
+            if (isDisconnected) return;
+            isDisconnected = true;
+            
+            // Show reconnection indicators
+            document.getElementById('offlineOverlay').classList.remove('hidden');
+            document.getElementById('connText').textContent = "OFFLINE (RECONNECTING)";
+            document.getElementById('connStatus').className = "flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 text-yellow-500 rounded-full text-xs border border-yellow-500/20 font-semibold";
+            document.getElementById('connPulse').className = "h-2.5 w-2.5 rounded-full bg-yellow-500 animate-pulse";
+
+            // Save disconnect log locally
+            addAlert('Internet Interrupted', 'Warning');
+
+            // Attempt reconnection
+            setTimeout(initWebSocket, 4000);
+        }
+        
+        function sendFrame() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoElement.videoWidth || 320;
+                canvas.height = videoElement.videoHeight || 240;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                const base64Data = canvas.toDataURL('image/jpeg', 0.45);
+                
+                ws.send(JSON.stringify({
+                    'type': 'video_frame',
+                    'image': base64Data
+                }));
+            } catch (e) {
+                console.error("Frame transmission failed: ", e);
+            }
+        }
+
+        // 4. Update Header Metrics
+        function updateProctorMeters(riskScore, warnings) {
+            // Update Progress Bar
+            const bar = document.getElementById('riskBar');
+            const barText = document.getElementById('riskPercentText');
+            bar.style.width = `${riskScore}%`;
+            barText.textContent = `${Math.round(riskScore)}%`;
+
+            if (riskScore > 75) {
+                bar.className = "h-full bg-red-500";
+            } else if (riskScore > 40) {
+                bar.className = "h-full bg-yellow-500";
+            } else {
+                bar.className = "h-full bg-green-500";
+            }
+
+            // Update warning bubbles
+            const warningBubbles = document.getElementById('warningBubbles');
+            warningBubbles.innerHTML = '';
+            for (let i = 1; i <= maxWarnings; i++) {
+                const circle = document.createElement('span');
+                if (i <= warnings) {
+                    circle.className = "h-4 w-4 rounded-full bg-red-500 border border-red-600 animate-pulse shadow-sm";
+                } else {
+                    circle.className = "h-4 w-4 rounded-full bg-gray-800 border border-gray-600";
+                }
+                warningBubbles.appendChild(circle);
+            }
+        }
+
+        // 5. Lockdown Enforcements
+        // Fullscreen
+        const overlay = document.getElementById('fullscreenOverlay');
+        const enterBtn = document.getElementById('enterFullscreenBtn');
+
+        function requestFullscreen() {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            }
+        }
+
+        enterBtn.addEventListener('click', requestFullscreen);
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                overlay.classList.remove('hidden');
+                addAlert('Exited Fullscreen', 'Warning');
+                reportBrowserViolation('FULLSCREEN_EXIT');
+            } else {
+                overlay.classList.add('hidden');
+            }
+        });
+
+        // Tab Switching & Blur (Tab Visibility)
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                addAlert('Switched Tab/Window', 'Critical');
+                reportBrowserViolation('TAB_SWITCH');
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            addAlert('Focused out of exam window', 'Critical');
+            reportBrowserViolation('TAB_SWITCH');
+        });
+
+        // Disables right-clicks, copy, and paste
+        document.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            addAlert('Right-Click Blocked', 'Warning');
+            reportBrowserViolation('RIGHT_CLICK');
+        });
+        document.addEventListener('copy', e => {
+            e.preventDefault();
+            addAlert('Copy attempts restricted', 'Warning');
+            reportBrowserViolation('CLIPBOARD_USE');
+        });
+        document.addEventListener('paste', e => {
+            e.preventDefault();
+            addAlert('Paste attempts restricted', 'Warning');
+            reportBrowserViolation('CLIPBOARD_USE');
+        });
+
+        // Block secure Hotkeys
+        document.addEventListener('keydown', e => {
+            const forbiddenKeys = ['F12', 'Escape'];
+            const forbiddenCombos = [
+                e.ctrlKey && e.shiftKey && e.key === 'I', // DevTools
+                e.ctrlKey && e.key === 'c',               // Copy
+                e.ctrlKey && e.key === 'v',               // Paste
+                e.ctrlKey && e.key === 'u',               // View source
+                e.altKey && e.key === 'Tab',              // Alt-Tab
+                e.metaKey                                 // Windows/CMD key
+            ];
+
+            if (forbiddenKeys.includes(e.key) || forbiddenCombos.some(Boolean)) {
+                e.preventDefault();
+                addAlert('Restricted hotkey blocked', 'Warning');
+                reportBrowserViolation('HOTKEY_PRESS');
+            }
+        });
+
+        // Multiple Screen Detection Simulation
+        function checkScreenExtended() {
+            if (window.screen.isExtended || (window.screen.width > 2560 && window.innerWidth < 1200)) {
+                addAlert('Multiple screens detected', 'Critical');
+                reportBrowserViolation('MULTIPLE_SCREENS');
+            }
+        }
+        window.addEventListener('resize', checkScreenExtended);
+
+        function reportBrowserViolation(eventType) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    'type': 'browser_event',
+                    'event': eventType
+                }));
+            }
+        }
+
+        // 6. Alert & Disqualification workflows
+        function addAlert(message, level) {
+            totalViolations++;
+            document.getElementById('violationCountBadge').textContent = totalViolations;
+
+            const list = document.getElementById('alertList');
+            // Remove empty notice if present
+            if (list.firstElementChild && list.firstElementChild.classList.contains('italic')) {
+                list.innerHTML = '';
+            }
+
+            const colorClass = level === 'Critical' ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+            const li = document.createElement('li');
+            li.className = `p-3 rounded-lg border ${colorClass} text-xs flex flex-col animate-[pulse_0.4s_ease-in-out] shadow-sm`;
+            li.innerHTML = `
+                <div class="flex justify-between font-bold">
+                    <span>${level}</span>
+                    <span class="opacity-60 font-normal">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <span class="mt-0.5">${message}</span>
+            `;
+            list.prepend(li);
+        }
+
+        function triggerDisqualification() {
+            // Lock out, show layout
+            document.getElementById('disqOverlay').classList.remove('hidden');
+            // Remove local save so they can't reuse
+            localStorage.removeItem(storageKey);
+            // Submit form async
+            clearInterval(wsHeartbeat);
+            if (ws) ws.close();
+            
+            // Post form submit automatically to terminate DB attempt
+            const form = document.getElementById('examForm');
+            const hiddenStatusInput = document.createElement('input');
+            hiddenStatusInput.type = 'hidden';
+            hiddenStatusInput.name = 'auto_disqualified';
+            hiddenStatusInput.value = 'true';
+            form.appendChild(hiddenStatusInput);
+            
+            // Submit exam in backend
+            form.submit();
+        }
+
+        // 7. Timer & Submit triggers
+        const submitBtn = document.getElementById('submitBtn');
+        const examForm = document.getElementById('examForm');
+
+        submitBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to submit your examination?")) {
+                localStorage.removeItem(storageKey);
+                examForm.submit();
+            }
+        });
+
+        let durationMinutes = parseInt("{{ exam.duration_minutes }}") || 60;
+        let time = durationMinutes * 60;
+        const timerEl = document.getElementById('timer');
+        const timerInterval = setInterval(() => {
+            time--;
+            if (time <= 0) {
+                clearInterval(timerInterval);
+                localStorage.removeItem(storageKey);
+                alert("Examination time has elapsed. Submitting automatically.");
+                examForm.submit();
+                return;
+            }
+            const h = Math.floor(time / 3600).toString().padStart(2, '0');
+            const m = Math.floor((time % 3600) / 60).toString().padStart(2, '0');
+            const s = (time % 60).toString().padStart(2, '0');
+            timerEl.textContent = `${h}:${m}:${s}`;
+        }, 1000);
+
+        // Init loads
+        window.addEventListener('load', () => {
+            restoreSavedAnswers();
+            setupWebcam();
+            checkScreenExtended();
+            if (!document.fullscreenElement) {
+                overlay.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

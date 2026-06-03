@@ -1,0 +1,505 @@
+{% extends 'base.html' %}
+
+{% block title %}Live Monitor - {{ exam.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .glass-card {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .candidate-grid-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .candidate-grid-card.alert-pulse {
+        border-color: rgba(239, 68, 68, 0.6);
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+        animation: pulse-border 1.5s infinite;
+    }
+    @keyframes pulse-border {
+        0% { border-color: rgba(239, 68, 68, 0.4); }
+        50% { border-color: rgba(239, 68, 68, 0.9); }
+        100% { border-color: rgba(239, 68, 68, 0.4); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- Top Header & Breadcrumb -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <a href="{% url 'admin_dashboard' %}" class="hover:text-primary transition-colors">Admin Dashboard</a>
+                <span>&gt;</span>
+                <span class="text-gray-300">Live Proctor Control</span>
+            </div>
+            <h1 class="text-3xl font-extrabold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                Live Monitoring Control Center
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">Exam session: <span class="text-white font-bold">{{ exam.title }}</span></p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="relative flex h-3.5 w-3.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+            </span>
+            <span class="text-sm font-bold tracking-wider text-red-400 uppercase">Proctoring Engine Running</span>
+        </div>
+    </div>
+
+    <!-- Live Proctor Status Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="glass-card overflow-hidden rounded-2xl shadow-sm p-5 flex items-center justify-between">
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Candidates</dt>
+                <dd id="activeCount" class="mt-1.5 text-3xl font-extrabold text-white">0</dd>
+            </div>
+            <div class="h-12 w-12 rounded-xl bg-blue-500/10 text-primary flex items-center justify-center">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="glass-card overflow-hidden rounded-2xl shadow-sm p-5 flex items-center justify-between">
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Disqualified Attempts</dt>
+                <dd id="disqCount" class="mt-1.5 text-3xl font-extrabold text-red-500">0</dd>
+            </div>
+            <div class="h-12 w-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="glass-card overflow-hidden rounded-2xl shadow-sm p-5 flex items-center justify-between">
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total System Violations</dt>
+                <dd id="violationCount" class="mt-1.5 text-3xl font-extrabold text-yellow-500">{{ violation_logs.count }}</dd>
+            </div>
+            <div class="h-12 w-12 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="glass-card overflow-hidden rounded-2xl shadow-sm p-5 flex items-center justify-between">
+            <div>
+                <dt class="text-xs font-semibold text-gray-400 uppercase tracking-wider">System Threat Level</dt>
+                <dd id="threatLevel" class="mt-1.5 text-xl font-black text-green-400">SECURE</dd>
+            </div>
+            <div class="h-12 w-12 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center" id="threatIconBg">
+                <svg id="threatIcon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid Matrix & Alerts Ticker Split -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left 2 Cols: Live Video Matrix -->
+        <div class="lg:col-span-2 space-y-4">
+            <h2 class="text-lg font-bold text-white flex items-center justify-between">
+                <span>Candidate Webcam Feed Matrix</span>
+                <span class="text-xs font-normal text-gray-400">Updates live every second</span>
+            </h2>
+            
+            <div id="videoMatrix" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- If no candidates yet -->
+                <div id="noCandidatesPlaceholder" class="col-span-full glass-card p-12 text-center rounded-2xl">
+                    <div class="h-12 w-12 text-gray-500 mx-auto mb-4 animate-pulse">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <p class="text-gray-400 text-sm">No active exam sessions currently streaming.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Col: Real-time Alert Ticker & Feed -->
+        <div class="space-y-4">
+            <h2 class="text-lg font-bold text-white flex items-center justify-between">
+                <span>Real-Time Alert Feed</span>
+                <button onclick="clearAlerts()" class="text-xs text-gray-400 hover:text-white transition-colors">Clear</button>
+            </h2>
+
+            <div class="glass-card rounded-2xl p-4 h-[550px] overflow-hidden flex flex-col">
+                <div class="overflow-y-auto flex-1 space-y-3 pr-1 custom-scrollbar" id="alertTicker">
+                    {% for log in violation_logs %}
+                    <div class="p-3 bg-red-950/20 border border-red-900/30 rounded-xl flex items-start gap-3 relative group">
+                        <div class="mt-1 text-red-500">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1 text-xs">
+                            <div class="flex justify-between font-bold text-gray-300">
+                                <span>{{ log.attempt.student.username }}</span>
+                                <span class="text-[10px] text-gray-500 font-normal">{{ log.timestamp|time:"H:i:s" }}</span>
+                            </div>
+                            <p class="text-gray-400 mt-0.5">Violation: <span class="text-red-400 font-semibold">{{ log.get_violation_type_display }}</span></p>
+                            {% if log.snapshot %}
+                            <button onclick="reviewViolationImage('{{ log.snapshot.url }}')" class="mt-2 text-[10px] text-primary hover:underline flex items-center gap-1">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Review Screenshot
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div id="noAlertsLog" class="text-center py-20 text-xs text-gray-500 italic">
+                        No violations logged for this examination session.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Screenshot Review Modal Overlay -->
+<div id="reviewModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center hidden" onclick="closeReviewModal()">
+    <div class="glass-card p-6 max-w-xl w-full mx-4 rounded-3xl relative" onclick="event.stopPropagation()">
+        <button onclick="closeReviewModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+        <h3 class="text-lg font-bold text-white mb-4">Proctor Screenshot Review</h3>
+        <div class="w-full aspect-video bg-black rounded-2xl overflow-hidden ring-1 ring-white/10 relative">
+            <img id="modalImg" class="w-full h-full object-cover">
+        </div>
+        <p class="text-xs text-gray-400 mt-3 text-center">Snapshot auto-captured on suspicious activity trigger.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const activeCandidates = {};
+    const examId = "{{ exam.id }}";
+    
+    // Setup WebSocket to listen to proctor room alerts
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsUrl = protocol + window.location.host + '/ws/proctoring/' + examId + '/';
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        
+        if (data.type === 'admin_feed_update') {
+            const studentId = data.student_id;
+            
+            // Add or update candidate record
+            if (!activeCandidates[studentId]) {
+                activeCandidates[studentId] = {
+                    username: data.username,
+                    isOffline: false
+                };
+                document.getElementById('noCandidatesPlaceholder').style.display = 'none';
+            }
+            
+            // Clear offline timers if any
+            if (activeCandidates[studentId].offlineTimeout) {
+                clearTimeout(activeCandidates[studentId].offlineTimeout);
+            }
+            activeCandidates[studentId].isOffline = false;
+            
+            // Update UI card
+            updateCandidateCard(studentId, data.username, data.image, data.metrics, data.violations, data.risk_score, data.warnings, data.is_disqualified);
+            
+            // Start a safety timeout: if we don't get updates for 6 seconds, flag as Offline
+            activeCandidates[studentId].offlineTimeout = setTimeout(() => {
+                flagCandidateOffline(studentId);
+            }, 6000);
+
+            // Trigger Real-time warnings inside the Alert ticker if violations present
+            if (data.violations && data.violations.length > 0) {
+                appendLiveAlert(data.username, data.violations, data.risk_score, data.image);
+            }
+        }
+        else if (data.type === 'admin_alert') {
+            appendLiveAlert(data.username || "Student", data.violations, data.risk_score, null);
+        }
+    };
+    
+    function updateCandidateCard(studentId, username, imageBase64, metrics, violations, riskScore, warnings, isDisqualified) {
+        const matrix = document.getElementById('videoMatrix');
+        let card = document.getElementById(`candidate_card_${studentId}`);
+        
+        if (!card) {
+            // Create card structure
+            card = document.createElement('div');
+            card.id = `candidate_card_${studentId}`;
+            card.className = "candidate-grid-card glass-card rounded-2xl p-4 flex flex-col space-y-4 border border-gray-800";
+            card.innerHTML = `
+                <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                            ${username[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-white">${username}</p>
+                            <span id="card_status_${studentId}" class="text-[10px] text-green-400 font-semibold uppercase tracking-wider">Active</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded text-[10px]" id="eye_stats_${studentId}">
+                        <span class="text-gray-400">Gaze:</span>
+                        <span class="font-bold text-primary" id="card_gaze_${studentId}">Center</span>
+                    </div>
+                </div>
+
+                <!-- Video Screen -->
+                <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden ring-1 ring-white/10">
+                    <img id="card_img_${studentId}" class="w-full h-full object-cover transform scale-x-[-1]">
+                    <div id="card_offline_overlay_${studentId}" class="absolute inset-0 bg-darker/90 backdrop-blur-sm flex flex-col items-center justify-center hidden">
+                        <svg class="h-10 w-10 text-yellow-500 animate-pulse mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p class="text-xs text-yellow-400 font-bold">WEBCAM DISCONNECTED</p>
+                    </div>
+                </div>
+
+                <!-- Metrics & Risk -->
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-0.5">
+                            <span>Suspicious Risk</span>
+                            <span class="font-bold text-white" id="card_risk_text_${studentId}">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                            <div id="card_risk_bar_${studentId}" class="h-full bg-green-500 transition-all duration-300" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between items-center text-[10px]">
+                        <span class="text-gray-400">Warnings: <strong id="card_warning_text_${studentId}">0</strong></span>
+                        <div class="flex items-center gap-1.5" id="card_badge_list_${studentId}">
+                            <!-- Dynamic items like Mobile, Headphones -->
+                        </div>
+                    </div>
+                </div>
+            `;
+            matrix.appendChild(card);
+            
+            // Increment active candidates count
+            updateCounters();
+        }
+
+        // 1. Live Feed Update
+        const img = document.getElementById(`card_img_${studentId}`);
+        img.src = imageBase64;
+        document.getElementById(`card_offline_overlay_${studentId}`).classList.add('hidden');
+
+        // 2. Gaze Update
+        if (metrics && metrics.gaze_direction) {
+            const gazeText = document.getElementById(`card_gaze_${studentId}`);
+            gazeText.textContent = metrics.gaze_direction.toUpperCase();
+            if (metrics.gaze_direction !== 'center') {
+                gazeText.className = "font-bold text-yellow-400";
+            } else {
+                gazeText.className = "font-bold text-primary";
+            }
+        }
+
+        // 3. Risk updates
+        const riskBar = document.getElementById(`card_risk_bar_${studentId}`);
+        const riskVal = document.getElementById(`card_risk_text_${studentId}`);
+        riskBar.style.width = `${riskScore}%`;
+        riskVal.textContent = `${Math.round(riskScore)}%`;
+        if (riskScore > 75) {
+            riskBar.className = "h-full bg-red-500";
+        } else if (riskScore > 40) {
+            riskBar.className = "h-full bg-yellow-500";
+        } else {
+            riskBar.className = "h-full bg-green-500";
+        }
+
+        // 4. Warning update
+        document.getElementById(`card_warning_text_${studentId}`).textContent = `${warnings}/${parseInt("{{ exam.allowed_warnings }}") || 3}`;
+
+        // 5. Pulsing alert if violations are high
+        if (violations && violations.length > 0) {
+            card.classList.add('alert-pulse');
+            setTimeout(() => {
+                card.classList.remove('alert-pulse');
+            }, 3000);
+        }
+
+        // 6. Object Badges list
+        const badgeList = document.getElementById(`card_badge_list_${studentId}`);
+        badgeList.innerHTML = '';
+        if (metrics && metrics.objects_detected) {
+            metrics.objects_detected.forEach(obj => {
+                const badge = document.createElement('span');
+                badge.className = "px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-semibold border border-purple-500/30 text-[9px] uppercase";
+                badge.textContent = obj;
+                badgeList.appendChild(badge);
+            });
+        }
+
+        // 7. Handle Disqualified / Locked status
+        if (isDisqualified) {
+            document.getElementById(`card_status_${studentId}`).className = "text-[10px] text-red-500 font-bold uppercase tracking-wider";
+            document.getElementById(`card_status_${studentId}`).textContent = "Disqualified";
+            document.getElementById(`card_offline_overlay_${studentId}`).classList.remove('hidden');
+            document.getElementById(`card_offline_overlay_${studentId}`).innerHTML = `
+                <div class="h-10 w-10 text-red-600 mb-2">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <p class="text-xs text-red-500 font-extrabold uppercase">SESSION DISQUALIFIED</p>
+            `;
+            updateCounters();
+        }
+    }
+
+    function flagCandidateOffline(studentId) {
+        if (!activeCandidates[studentId] || activeCandidates[studentId].isOffline) return;
+        activeCandidates[studentId].isOffline = true;
+        
+        document.getElementById(`card_status_${studentId}`).className = "text-[10px] text-gray-500 font-semibold uppercase tracking-wider";
+        document.getElementById(`card_status_${studentId}`).textContent = "Offline";
+        
+        // Show offline webcam overlay
+        document.getElementById(`card_offline_overlay_${studentId}`).classList.remove('hidden');
+        document.getElementById(`card_offline_overlay_${studentId}`).innerHTML = `
+            <svg class="h-10 w-10 text-gray-600 mb-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <p class="text-xs text-gray-500 font-bold">WEBCAM CONNECTION LOST</p>
+        `;
+        
+        // Push offline alert to ticker
+        appendLiveAlert(activeCandidates[studentId].username, ['WEBCAM_DISCONNECT'], null, null);
+        updateCounters();
+    }
+
+    function updateCounters() {
+        let active = 0;
+        let disq = 0;
+        
+        for (let studentId in activeCandidates) {
+            const statusText = document.getElementById(`card_status_${studentId}`);
+            if (statusText) {
+                if (statusText.textContent === 'ACTIVE') active++;
+                else if (statusText.textContent === 'DISQUALIFIED') disq++;
+            }
+        }
+        
+        document.getElementById('activeCount').textContent = active;
+        document.getElementById('disqCount').textContent = disq;
+        
+        // Update threat indicator
+        const threatText = document.getElementById('threatLevel');
+        const threatIcon = document.getElementById('threatIcon');
+        const threatIconBg = document.getElementById('threatIconBg');
+        
+        if (disq > 0) {
+            threatText.textContent = "HIGH THREAT";
+            threatText.className = "mt-1.5 text-xl font-black text-red-500 animate-pulse";
+            threatIconBg.className = "h-12 w-12 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center";
+        } else if (activeCandidatesSize() > 0 && totalSystemViolationsCount() > 5) {
+            threatText.textContent = "SUSPICIOUS";
+            threatText.className = "mt-1.5 text-xl font-black text-yellow-500";
+            threatIconBg.className = "h-12 w-12 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center";
+        } else {
+            threatText.textContent = "SECURE";
+            threatText.className = "mt-1.5 text-xl font-black text-green-400";
+            threatIconBg.className = "h-12 w-12 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center";
+        }
+    }
+    
+    function activeCandidatesSize() {
+        return Object.keys(activeCandidates).length;
+    }
+    
+    function totalSystemViolationsCount() {
+        return parseInt(document.getElementById('violationCount').textContent) || 0;
+    }
+
+    function appendLiveAlert(username, violations, riskScore, frameImage) {
+        const ticker = document.getElementById('alertTicker');
+        const emptyNotice = document.getElementById('noAlertsLog');
+        if (emptyNotice) emptyNotice.remove();
+        
+        violations.forEach(v => {
+            const card = document.createElement('div');
+            card.className = "p-3 bg-red-950/20 border border-red-900/30 rounded-xl flex items-start gap-3 relative group animate-[slideIn_0.3s_ease-out]";
+            
+            // Format violation text
+            const formattedViolation = v.replace(/_/g, ' ');
+            
+            let screenshotButton = '';
+            if (frameImage) {
+                screenshotButton = `
+                    <button onclick="reviewViolationImage('${frameImage}')" class="mt-2 text-[10px] text-primary hover:underline flex items-center gap-1">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Review Live Snapshot
+                    </button>
+                `;
+            }
+            
+            card.innerHTML = `
+                <div class="mt-1 text-red-500">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="flex-1 text-xs">
+                    <div class="flex justify-between font-bold text-gray-300">
+                        <span>${username}</span>
+                        <span class="text-[10px] text-gray-500 font-normal">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    <p class="text-gray-400 mt-0.5">Violation: <span class="text-red-400 font-semibold">${formattedViolation}</span></p>
+                    ${screenshotButton}
+                </div>
+            `;
+            ticker.prepend(card);
+        });
+        
+        // Increment system violations count
+        const counter = document.getElementById('violationCount');
+        counter.textContent = parseInt(counter.textContent) + violations.length;
+        updateCounters();
+    }
+
+    // Modal view
+    function reviewViolationImage(imgSrc) {
+        const modal = document.getElementById('reviewModal');
+        const modalImg = document.getElementById('modalImg');
+        modalImg.src = imgSrc;
+        modal.classList.remove('hidden');
+    }
+    
+    function closeReviewModal() {
+        document.getElementById('reviewModal').classList.add('hidden');
+    }
+    
+    function clearAlerts() {
+        document.getElementById('alertTicker').innerHTML = `
+            <div id="noAlertsLog" class="text-center py-20 text-xs text-gray-500 italic">
+                No violations logged for this examination session.
+            </div>
+        `;
+    }
+</script>
+{% endblock %}

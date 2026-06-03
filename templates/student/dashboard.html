@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Welcome Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Welcome back, {{ request.user.username }}!</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Here's an overview of your upcoming exams and performance.</p>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+        <div class="glass overflow-hidden rounded-2xl shadow-sm transition-transform hover:-translate-y-1">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900/30 rounded-xl p-3">
+                        <svg class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Upcoming Exams</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ upcoming_count }}</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass overflow-hidden rounded-2xl shadow-sm transition-transform hover:-translate-y-1">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-100 dark:bg-green-900/30 rounded-xl p-3">
+                        <svg class="h-6 w-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Completed Exams</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ completed_count }}</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass overflow-hidden rounded-2xl shadow-sm transition-transform hover:-translate-y-1">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-100 dark:bg-purple-900/30 rounded-xl p-3">
+                        <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Average Score</dt>
+                            <dd class="flex items-baseline">
+                                <div class="text-2xl font-semibold text-gray-900 dark:text-white">{{ avg_score }}%</div>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Upcoming Exams List -->
+        <div class="lg:col-span-2 glass rounded-2xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Available Exams</h2>
+            </div>
+            
+            <div class="space-y-4">
+                {% for exam in upcoming_exams %}
+                <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-dark/50 transition-colors">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ exam.title }}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ exam.start_time|date:"F d, Y @ P" }} • {{ exam.duration_minutes }} Minutes</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'take_exam' exam.id %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                            Start Exam
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No exams available</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Check back later for new assignments.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Performance Chart -->
+        <div class="glass rounded-2xl shadow-sm p-6">
+            <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Performance Trend</h2>
+            <div class="relative h-64">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historical Attempt History & Proctoring Results -->
+    <div class="mt-8 glass rounded-2xl shadow-sm p-6">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center justify-between">
+            <span>Your Exam Attempt History</span>
+            <span class="text-xs text-gray-400 font-normal">Check detailed results and security compliance logs</span>
+        </h2>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50/50 dark:bg-dark/50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Title</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Date & Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Proctoring Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Score</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Warnings logged</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Violation Highlights</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    {% for attempt in history_attempts %}
+                    <tr class="hover:bg-gray-50/30 dark:hover:bg-dark/30 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ attempt.exam.title }}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Total Marks: {{ attempt.exam.total_marks }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {{ attempt.start_time|date:"F d, Y @ P" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if attempt.status == 'SUBMITTED' %}
+                            <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                                Submitted Successfully
+                            </span>
+                            {% elif attempt.status == 'AUTO_SUBMITTED' %}
+                            <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                                Auto Submitted (Timeout)
+                            </span>
+                            {% elif attempt.status == 'DISQUALIFIED' %}
+                            <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-500/10 text-red-500 border border-red-500/20 animate-pulse">
+                                Disqualified
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                                {{ attempt.get_status_display }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if attempt.score is not None %}
+                            <div class="text-sm font-bold text-gray-900 dark:text-white">{{ attempt.score }} / {{ attempt.exam.total_marks }}</div>
+                            {% if attempt.exam.negative_marking %}
+                            <span class="text-[10px] text-red-400 font-medium">Negative marking enabled (-{{ attempt.exam.negative_mark_value }} per wrong answer)</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-xs text-gray-500 italic">Not graded</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-semibold {% if attempt.warning_count >= attempt.exam.allowed_warnings %}text-red-500{% elif attempt.warning_count > 0 %}text-yellow-500{% else %}text-green-500{% endif %}">
+                                    {{ attempt.warning_count }}
+                                </span>
+                                <span class="text-gray-400 dark:text-gray-500">/ {{ attempt.exam.allowed_warnings }} allowed</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1.5 max-w-xs">
+                                {% for violation in attempt.violations.all %}
+                                <span class="px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] uppercase font-bold" title="{{ violation.timestamp|date:'H:i:s' }}">
+                                    {{ violation.get_violation_type_display }}
+                                </span>
+                                {% empty %}
+                                <span class="text-xs text-green-500 dark:text-green-400 font-semibold flex items-center gap-1">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                    Clean Attempt
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No exam history found. Take your first exam from the list above!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const isDark = document.documentElement.classList.contains('dark');
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Attempt 1', 'Attempt 2', 'Attempt 3', 'Attempt 4', 'Attempt 5'],
+                datasets: [{
+                    label: 'Score %',
+                    data: [70, 75, 80, 85, {{ avg_score }}],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+    });
+</script>
+<style>
+    .glass {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+</style>
+{% endblock %}
